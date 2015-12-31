@@ -16,6 +16,9 @@
 #include <pthread.h>
 #include <deque>
 #include <time.h>
+#include <fstream>
+#include <sstream>
+#include <unistd.h>
 #define EV_BUF_SIZE 16
 using namespace std;
 class key_msg
@@ -118,7 +121,8 @@ int main(int argc, char *argv[])
     /* A few examples of information to gather */
     deque<key_msg *> key_events;
     pthread_t gather;
-    if (argc < 2) {
+    ofstream outfile(argv[2],ios::in|ios::ate);
+    if (argc < 3) {
         fprintf(stderr,
             "Usage: %s /dev/input/eventN\n"
             "Where X = input device number\n",
@@ -129,10 +133,9 @@ int main(int argc, char *argv[])
     void * args[2]={argv[1],&key_events};
     void * result;
     pthread_create(&gather,NULL,gather_input,args);
-
     while(1)
     {
-        sleep(2);
+        usleep(500);
         key_msg * this_dat;
         if (key_events.empty()==true)
         {
@@ -142,10 +145,21 @@ int main(int argc, char *argv[])
         this_dat= key_events.front();
         key_events.pop_front();
 
-        cout<<this_dat->code<<endl;
+        cout<<this_dat->code;
+        stringstream s;
+        s<<this_dat->code;
+        struct tm *ltime = localtime(&this_dat->stime);
+        char time_cache[100];
+        strftime(time_cache,sizeof(time_cache),"%G-%m-%d %H:%M:%S",ltime);
+        string timeout(time_cache);
+        timeout = s.str()+"@" +timeout;
+        if(outfile.is_open()){
+            outfile<<timeout<<endl;
+        }
         delete this_dat;
     }
     pthread_join(gather,&result);
+    outfile.close();
 
     return errno;
 }
